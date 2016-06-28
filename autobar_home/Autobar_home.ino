@@ -1,10 +1,10 @@
-//////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
 //   Автобар                                                                 //
 //   Nano + 4 Relay                                                          //
 //   DIY-pragmatiс konakovskiy@gmail.com                                     //
 //   2016-06-20                                                              //
-//   Два мотора 12В 4 концевика на датчиках                                  //
-//   Холла. По нажатию кнопки моторы последовательно выдвигают каретку       //
+//   Два мотора 12В 4 концевика на Герконах.                                 //
+//   По нажатию кнопки моторы последовательно выдвигают каретку              //
 //   Повтороное нажатие - каретка задвигается. Состояние кнопки запоминать   //
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -28,10 +28,10 @@ void setup() {
   pinMode (M1_2, OUTPUT);
   pinMode (M2_1, OUTPUT);
   pinMode (M2_2, OUTPUT);
-  pinMode (M1_S, INPUT);
-  pinMode (M1_F, INPUT);
-  pinMode (M2_S, INPUT);
-  pinMode (M2_F, INPUT);
+  pinMode (M1_S, INPUT_PULLUP);
+  pinMode (M1_F, INPUT_PULLUP);
+  pinMode (M2_S, INPUT_PULLUP);
+  pinMode (M2_F, INPUT_PULLUP);
   pinMode (START_BTN, INPUT_PULLUP);
   Serial.begin(9600);
 }
@@ -44,34 +44,30 @@ void loop() {
  }
 
 void sensors_stat() {
- uint8_t s1_s = analogRead(M1_S);
-  if ((s1_s < 370) || (s1_s > 630)) S1_S = HIGH;
+ uint8_t s1_s = digitalRead(M1_S);
+  if (s1_s) S1_S = HIGH;
   else S1_S = LOW; 
-  Serial.print(s1_s);
   Serial.print("S1_S = ");
   Serial.println(S1_S);
-uint8_t s1_f = analogRead(M1_F);
-  if ((s1_f < 370) || (s1_f > 630)) S1_F = HIGH;
+uint8_t s1_f = digitalRead(M1_F);
+  if (s1_f) S1_F = HIGH;
   else S1_F = LOW; 
-  Serial.print(s1_f);
   Serial.print("S1_F = ");
   Serial.println(S1_F);
-uint8_t s2_s = analogRead(M2_S);
-  if ((s2_s < 370) || (s2_s > 630)) S2_S = HIGH;
+uint8_t s2_s = digitalRead(M2_S);
+  if (s2_s) S2_S = HIGH;
   else S2_S = LOW; 
-  Serial.print(s2_s);
   Serial.print("S2_S = ");
   Serial.println(S2_S);
-uint8_t s2_f = analogRead(M2_F);
-  if ((s2_f < 370) || (s2_f > 630)) S2_F = HIGH;
+uint8_t s2_f = digitalRead(M2_F);
+  if (s2_f) S2_F = HIGH;
   else S2_F = LOW; 
-  Serial.print(s2_f);
   Serial.print("S2_F = ");
   Serial.println(S2_F);
-  S1_S = 1;
-  S1_F = 0;
-  S2_S = 1;
-  S2_F = 0;
+//  S1_S = 1;
+//  S1_F = 0;
+//  S2_S = 1;
+//  S2_F = 0;
   }
 
 //предстартовая проверка состояния после подачи питания
