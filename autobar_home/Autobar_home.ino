@@ -20,7 +20,9 @@ int M2_F = A3; //Датчик финишный на мотор 2
 int START_BTN = 3; // кнопка старта
 boolean START_BTN_PREV = LOW; // начальное и предыдущее состояние кнопки старта
 boolean START_BTN_STAT = HIGH; // текущее состояние кнопки старта
-boolean START_READY = LOW; //флаг готовности к старту
+boolean OPEN_READY = LOW; //флаг готовности к открытию
+boolean CLOSE_READY = LOW; //флаг готовности к закрытию
+
 boolean S1_S, S1_F, S2_S, S2_F;// переменные для хранения состояния датчиков
 
 void setup() {
@@ -33,49 +35,44 @@ void setup() {
   pinMode (M2_S, INPUT_PULLUP);
   pinMode (M2_F, INPUT_PULLUP);
   pinMode (START_BTN, INPUT_PULLUP);
-  Serial.begin(9600);
+  //Serial.begin(9600);
 }
 
 void loop() {
  readbutton (); //опрашиваем кнопку ПУСК
  startreadycheck (); //проверка состояния
- if (START_READY)  normalstart ();
- if (!START_READY)  reset ();
+ if (OPEN_READY)  normalstart ();
+ else reset ();
+ startclosecheck ();
+ if (CLOSE_READY)  normalstart ();
  }
-
-void sensors_stat() {
- uint8_t s1_s = digitalRead(M1_S);
-  if (s1_s) S1_S = HIGH;
-  else S1_S = LOW; 
-  Serial.print("S1_S = ");
-  Serial.println(S1_S);
-uint8_t s1_f = digitalRead(M1_F);
-  if (s1_f) S1_F = HIGH;
-  else S1_F = LOW; 
-  Serial.print("S1_F = ");
-  Serial.println(S1_F);
-uint8_t s2_s = digitalRead(M2_S);
-  if (s2_s) S2_S = HIGH;
-  else S2_S = LOW; 
-  Serial.print("S2_S = ");
-  Serial.println(S2_S);
-uint8_t s2_f = digitalRead(M2_F);
-  if (s2_f) S2_F = HIGH;
-  else S2_F = LOW; 
-  Serial.print("S2_F = ");
-  Serial.println(S2_F);
-//  S1_S = 1;
-//  S1_F = 0;
-//  S2_S = 1;
-//  S2_F = 0;
-  }
 
 //предстартовая проверка состояния после подачи питания
 void startreadycheck () { 
   sensors_stat(); //проверяем сенсоры
-    if (S1_S && !S1_F && S2_S && !S2_F) START_READY = HIGH; //если нормально - старт
-    else START_READY = LOW;
+    if (S1_S && !S1_F && S2_S && !S2_F) OPEN_READY = HIGH; //если нормально - старт
+    else OPEN_READY = LOW;
   } 
+void startclosecheck (){
+  sensors_stat(); //проверяем сенсоры
+    if (!S1_S && S1_F && !S2_S && S2_F) CLOSE_READY = HIGH; //если нормально - старт
+    else CLOSE_READY = LOW;
+  }
+
+void sensors_stat() {
+  uint8_t s1_s = digitalRead(M1_S);
+    if (s1_s) S1_S = LOW;
+    else S1_S = HIGH; 
+  uint8_t s1_f = digitalRead(M1_F);
+    if (s1_f) S1_F = LOW;
+    else S1_F = HIGH; 
+ uint8_t s2_s = digitalRead(M2_S);
+    if (s2_s) S2_S = LOW;
+    else S2_S = HIGH; 
+ uint8_t s2_f = digitalRead(M2_F);
+    if (s2_f) S2_F = LOW;
+    else S2_F = HIGH; 
+}
 
 void reset (){ //сброс в исходное состояние
   proc_close();
@@ -95,7 +92,7 @@ void normalstart () {
 void readbutton (){
   boolean START_BTN_TMP = digitalRead (START_BTN);
     if (START_BTN_TMP == LOW) {
-      delay (50);
+      delay (30);
       START_BTN_STAT = digitalRead (START_BTN);
         if (!START_BTN_TMP && !START_BTN_STAT) {
         START_BTN_STAT = LOW;
@@ -108,26 +105,37 @@ void readbutton (){
 
 void proc_open() {  //процедура открытия
   motor_1_on_f();
-  delay (1000);
+  do {
+    sensors_stat();
+  }
+  while (!S1_F);
   motor_1_off();
-  delay (1000);
+  delay (500);
   motor_2_on_f();
-  delay (1000);
-  motor_2_off();
-  all_motors_off (); // все ввыключить для верности
+  do {
+    sensors_stat();
+  }
+  while (!S2_F);
+  //motor_2_off();
+  all_motors_off (); // все выключить для верности
   START_BTN_STAT = HIGH; //кнопка в исходное состояние
   START_BTN_PREV = HIGH; // запоминаем открытие
   
   }
 
 void proc_close() { //процедура закрытия
-  motor_2_on_r();
-  delay (1000);
+   motor_2_on_r();
+  do {
+    sensors_stat();
+  }
+  while (!S2_S);
   motor_2_off();
-  delay (1000);
+  delay (500);
   motor_1_on_r();
-  delay (1000);
-  motor_1_off();
+  do {
+    sensors_stat();
+  }
+  while (!S1_S);
   all_motors_off (); // все ввыключить для верности
   START_BTN_STAT = HIGH; //кнопка в исходное состояние
   START_BTN_PREV = LOW; // запоминаем закрытие
@@ -176,4 +184,4 @@ void motor_2_on_r() {      //первый мотор вкючен назад
   digitalWrite (M2_2, HIGH);
   digitalWrite (M1_1, LOW); //в это время первый гаррантированно выключен
   digitalWrite (M1_2, LOW);      
-}      
+} 
