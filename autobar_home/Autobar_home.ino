@@ -35,7 +35,7 @@ void setup() {
   pinMode (M2_S, INPUT_PULLUP);
   pinMode (M2_F, INPUT_PULLUP);
   pinMode (START_BTN, INPUT_PULLUP);
-  //Serial.begin(9600);
+  reset ();
 }
 
 void loop() {
