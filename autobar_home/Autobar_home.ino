@@ -41,10 +41,7 @@ void setup() {
 void loop() {
  readbutton (); //опрашиваем кнопку ПУСК
  startreadycheck (); //проверка состояния
- if (OPEN_READY)  normalstart ();
- else reset ();
- startclosecheck ();
- if (CLOSE_READY)  normalstart ();
+ normalstart ();
  }
 
 //предстартовая проверка состояния после подачи питания
@@ -82,7 +79,9 @@ void reset (){ //сброс в исходное состояние
 
 void normalstart () {
   if (!START_BTN_STAT && !START_BTN_PREV){
-    proc_open();
+    startreadycheck ();
+      if (OPEN_READY) proc_open();
+      if (!OPEN_READY) proc_close();
   }
   if (!START_BTN_STAT && START_BTN_PREV){
     proc_close();
