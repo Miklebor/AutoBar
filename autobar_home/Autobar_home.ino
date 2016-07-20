@@ -103,43 +103,58 @@ void readbutton (){
   }
 
 void proc_open() {  //процедура открытия
-  motor_1_on_f();
-  do {
-    sensors_stat();
+  motor_1_f();
+  delay (300);
+  sensors_stat();
+  if (S1_F) motor_2_f();
+  else {
+    motor_1_f(); //иначе опять мотор 1 гоним вперед до конца
+    motor_2_f();  // и потом опять включаем 2 вперед
   }
-  while (!S1_F);
-  motor_1_off();
-  delay (500);
-  motor_2_on_f();
-  do {
-    sensors_stat();
-  }
-  while (!S2_F);
-  //motor_2_off();
-  all_motors_off (); // все выключить для верности
   START_BTN_STAT = HIGH; //кнопка в исходное состояние
   START_BTN_PREV = HIGH; // запоминаем открытие
-  
+  }
+
+void motor_1_f(){
+  motor_1_on_f();  //мотор 1 на открытие вкл
+  do sensors_stat();
+  while (!S1_F); //пока не дойдет до финишного
+  all_motors_off (); // все выключить для верности
+}
+void motor_2_f(){
+  motor_2_on_f();  //мотор 2 на открытие вкл
+  do sensors_stat(); //опрашиваем концевики
+  while (!S2_F);   //пока не дойдет до финишного
+  all_motors_off(); // все выключить
   }
 
 void proc_close() { //процедура закрытия
-   motor_2_on_r();
-  do {
-    sensors_stat();
+  motor_2_r(); //мотор 2 назад
+  delay (300);
+  sensors_stat();
+  if (S2_S) motor_1_r(); //если мотор 2 дошел до конца, мотор 1 назад
+  else {
+    motor_2_r(); //иначе опять мотор 2 гоним до конца
+    motor_1_r();  // и потом опять включаем 1 назад
   }
-  while (!S2_S);
-  motor_2_off();
-  delay (500);
-  motor_1_on_r();
-  do {
-    sensors_stat();
-  }
-  while (!S1_S);
-  all_motors_off (); // все ввыключить для верности
   START_BTN_STAT = HIGH; //кнопка в исходное состояние
   START_BTN_PREV = LOW; // запоминаем закрытие
   }
 
+void motor_2_r(){
+  motor_2_on_r();  //мотор 2 на закрытие вкл
+  do sensors_stat(); //опрашиваем концевики
+  while (!S2_S);
+  all_motors_off();
+  }
+void motor_1_r(){
+  motor_1_on_r();  //мотор 1 на закрытие вкл
+  do sensors_stat();
+  while (!S1_S);
+  all_motors_off (); // все выключить для верности
+}
+
+  
 void all_motors_off () {  //все моторы выключены
   digitalWrite (M1_1, LOW);
   digitalWrite (M1_2, LOW);
