@@ -35,29 +35,44 @@ void setup() {
   pinMode (M2_S, INPUT_PULLUP);
   pinMode (M2_F, INPUT_PULLUP);
   pinMode (START_BTN, INPUT_PULLUP);
-  //Serial.begin(9600);
+  reset ();
 }
 
 void loop() {
  readbutton (); //опрашиваем кнопку ПУСК
- startreadycheck (); //проверка состояния
- if (OPEN_READY)  normalstart ();
- else reset ();
- startclosecheck ();
- if (CLOSE_READY)  normalstart ();
+ movereadycheck (); //проверка готовности к движению по состоянию датчиков
+ normalstart (); //старт движения в случае нормального положения датчиков
  }
 
+void readbutton (){ //опрос кнопки старта
+  boolean START_BTN_TMP = digitalRead (START_BTN);
+    if (START_BTN_TMP == LOW) {
+      delay (50);
+      START_BTN_STAT = digitalRead (START_BTN);
+        if (!START_BTN_TMP && !START_BTN_STAT) {
+        START_BTN_STAT = LOW;
+        }
+        else {
+          START_BTN_STAT = HIGH; 
+        } 
+     }
+  }
+
 //предстартовая проверка состояния после подачи питания
-void startreadycheck () { 
+void movereadycheck () { 
   sensors_stat(); //проверяем сенсоры
-    if (S1_S && !S1_F && S2_S && !S2_F) OPEN_READY = HIGH; //если нормально - старт
+    if (S1_S && !S1_F && S2_S && !S2_F) OPEN_READY = HIGH; //если нормально - готов к открытию
     else OPEN_READY = LOW;
-  } 
-void startclosecheck (){
-  sensors_stat(); //проверяем сенсоры
-    if (!S1_S && S1_F && !S2_S && S2_F) CLOSE_READY = HIGH; //если нормально - старт
+    if (!S1_S && S1_F && !S2_S && S2_F) CLOSE_READY = HIGH; //если нормально - готов к закрытию
     else CLOSE_READY = LOW;
   }
+
+void normalstart () { //в зависимости от положения запускаем открытие или закрытие
+  if (!START_BTN_STAT && !START_BTN_PREV && !OPEN_READY) proc_close();  //если к открытию не готов, сначала закрываем
+  if (!START_BTN_STAT && !START_BTN_PREV && OPEN_READY) proc_open(); //если готов к открытию и кнопка на открытие - открыть
+  if (!START_BTN_STAT && START_BTN_PREV && CLOSE_READY) proc_close();// ..... - закрыть
+  if (!START_BTN_STAT && START_BTN_PREV && !CLOSE_READY) proc_close();// ..... - закрыть в случае сбоя датчиков
+} 
 
 void sensors_stat() {
   uint8_t s1_s = digitalRead(M1_S);
@@ -80,77 +95,68 @@ void reset (){ //сброс в исходное состояние
   START_BTN_STAT = HIGH; // текущее состояние кнопки старта
   }
 
-void normalstart () {
-  if (!START_BTN_STAT && !START_BTN_PREV){
-    proc_open();
-  }
-  if (!START_BTN_STAT && START_BTN_PREV){
-    proc_close();
-  }
-} 
-
-void readbutton (){
-  boolean START_BTN_TMP = digitalRead (START_BTN);
-    if (START_BTN_TMP == LOW) {
-      delay (30);
-      START_BTN_STAT = digitalRead (START_BTN);
-        if (!START_BTN_TMP && !START_BTN_STAT) {
-        START_BTN_STAT = LOW;
-        }
-        else {
-          START_BTN_STAT = HIGH; 
-        } 
-     }
-  }
-
 void proc_open() {  //процедура открытия
-  motor_1_on_f();
-  do {
-    sensors_stat();
+  motor_1_f();
+  delay (300);
+  sensors_stat();
+  if (S1_F) motor_2_f();
+  else {
+    motor_1_f(); //иначе опять мотор 1 гоним вперед до конца
+    motor_2_f();  // и потом опять включаем 2 вперед
   }
-  while (!S1_F);
-  motor_1_off();
-  delay (500);
-  motor_2_on_f();
-  do {
-    sensors_stat();
-  }
-  while (!S2_F);
-  //motor_2_off();
-  all_motors_off (); // все выключить для верности
   START_BTN_STAT = HIGH; //кнопка в исходное состояние
   START_BTN_PREV = HIGH; // запоминаем открытие
-  
+  }
+
+void motor_1_f(){
+  motor_1_on_f();  //мотор 1 на открытие вкл
+  do sensors_stat();
+  while (!S1_F); //пока не дойдет до финишного
+  all_motors_off (); // все выключить для верности
+}
+void motor_2_f(){
+  sensors_stat();
+  if (!S1_F) motor_1_f();  //мотор 2 на дооткрытие вкл
+  motor_2_on_f();  //мотор 2 на открытие вкл
+  do sensors_stat(); //опрашиваем концевики
+  while (!S2_F && S1_F);   //пока не дойдет до финишного при полном открытии 1-го мотора
+  all_motors_off(); // все выключить
   }
 
 void proc_close() { //процедура закрытия
-   motor_2_on_r();
-  do {
-    sensors_stat();
+  motor_2_r(); //мотор 2 назад
+  delay (300);
+  sensors_stat();
+  if (S2_S) motor_1_r(); //если мотор 2 дошел до конца, мотор 1 назад
+  else {
+    motor_2_r(); //иначе опять мотор 2 гоним до конца
+    motor_1_r();  // и потом опять включаем 1 назад
   }
-  while (!S2_S);
-  motor_2_off();
-  delay (500);
-  motor_1_on_r();
-  do {
-    sensors_stat();
-  }
-  while (!S1_S);
-  all_motors_off (); // все ввыключить для верности
   START_BTN_STAT = HIGH; //кнопка в исходное состояние
   START_BTN_PREV = LOW; // запоминаем закрытие
-  }
+}
 
+void motor_2_r(){
+  motor_2_on_r();  //мотор 2 на закрытие вкл
+  do sensors_stat(); //опрашиваем концевики
+  while (!S2_S);
+  all_motors_off();
+}
+  
+void motor_1_r(){
+  sensors_stat();
+  if (!S2_S) motor_2_on_r();  //мотор 2 на дозакрытие вкл
+  motor_1_on_r();  //мотор 1 на закрытие вкл
+  do sensors_stat();
+  while (!S1_S && S2_S);
+  all_motors_off (); // все выключить для верности
+}
+  
 void all_motors_off () {  //все моторы выключены
   digitalWrite (M1_1, LOW);
   digitalWrite (M1_2, LOW);
   digitalWrite (M2_1, LOW);
   digitalWrite (M2_2, LOW);  
-  }
-
-void motor_1_off() {       //первый мотор выключен
-  digitalWrite (M1_1, LOW);
-  digitalWrite (M1_2, LOW);  
   }
 
 void motor_1_on_f() {      //первый мотор включен вперед
@@ -167,19 +173,14 @@ void motor_1_on_r() {      //первый мотор вкючен назад
   digitalWrite (M2_2, LOW);     
   }  
 
-void motor_2_off() {       //первый мотор выключен
-  digitalWrite (M2_1, LOW);
-  digitalWrite (M2_2, LOW); 
-  }
-
-void motor_2_on_f() {      //первый мотор включен вперед
+void motor_2_on_f() {      //второй мотор включен вперед
   digitalWrite (M2_1, HIGH);
   digitalWrite (M2_2, LOW);
   digitalWrite (M1_1, LOW); //в это время первый гаррантированно выключен
   digitalWrite (M1_2, LOW);    
   }  
 
-void motor_2_on_r() {      //первый мотор вкючен назад
+void motor_2_on_r() {      //второй мотор вкючен назад
   digitalWrite (M2_1, LOW);
   digitalWrite (M2_2, HIGH);
   digitalWrite (M1_1, LOW); //в это время первый гаррантированно выключен
