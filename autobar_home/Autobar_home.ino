@@ -40,58 +40,14 @@ void setup() {
 
 void loop() {
  readbutton (); //опрашиваем кнопку ПУСК
- startreadycheck (); //проверка состояния
- normalstart ();
+ movereadycheck (); //проверка готовности к движению по состоянию датчиков
+ normalstart (); //старт движения в случае нормального положения датчиков
  }
 
-//предстартовая проверка состояния после подачи питания
-void startreadycheck () { 
-  sensors_stat(); //проверяем сенсоры
-    if (S1_S && !S1_F && S2_S && !S2_F) OPEN_READY = HIGH; //если нормально - старт
-    else OPEN_READY = LOW;
-  } 
-void startclosecheck (){
-  sensors_stat(); //проверяем сенсоры
-    if (!S1_S && S1_F && !S2_S && S2_F) CLOSE_READY = HIGH; //если нормально - старт
-    else CLOSE_READY = LOW;
-  }
-
-void sensors_stat() {
-  uint8_t s1_s = digitalRead(M1_S);
-    if (s1_s) S1_S = LOW;
-    else S1_S = HIGH; 
-  uint8_t s1_f = digitalRead(M1_F);
-    if (s1_f) S1_F = LOW;
-    else S1_F = HIGH; 
- uint8_t s2_s = digitalRead(M2_S);
-    if (s2_s) S2_S = LOW;
-    else S2_S = HIGH; 
- uint8_t s2_f = digitalRead(M2_F);
-    if (s2_f) S2_F = LOW;
-    else S2_F = HIGH; 
-}
-
-void reset (){ //сброс в исходное состояние
-  proc_close();
-  START_BTN_PREV = LOW; // начальное и предыдущее состояние кнопки старта
-  START_BTN_STAT = HIGH; // текущее состояние кнопки старта
-  }
-
-void normalstart () {
-  if (!START_BTN_STAT && !START_BTN_PREV){
-    startreadycheck ();
-      if (OPEN_READY) proc_open();
-      if (!OPEN_READY) proc_close();
-  }
-  if (!START_BTN_STAT && START_BTN_PREV){
-    proc_close();
-  }
-} 
-
-void readbutton (){
+void readbutton (){ //опрос кнопки старта
   boolean START_BTN_TMP = digitalRead (START_BTN);
     if (START_BTN_TMP == LOW) {
-      delay (30);
+      delay (50);
       START_BTN_STAT = digitalRead (START_BTN);
         if (!START_BTN_TMP && !START_BTN_STAT) {
         START_BTN_STAT = LOW;
@@ -100,6 +56,66 @@ void readbutton (){
           START_BTN_STAT = HIGH; 
         } 
      }
+  }
+
+//предстартовая проверка состояния после подачи питания
+void movereadycheck () { 
+  sensors_stat(); //проверяем сенсоры
+    if (S1_S && !S1_F && S2_S && !S2_F) OPEN_READY = HIGH; //если нормально - готов к открытию
+    else OPEN_READY = LOW;
+    if (!S1_S && S1_F && !S2_S && S2_F) CLOSE_READY = HIGH; //если нормально - готов к закрытию
+    else CLOSE_READY = LOW;
+  }
+
+void normalstart () { //в зависимости от положения запускаем открытие или закрытие
+  if (!START_BTN_STAT && !START_BTN_PREV && !OPEN_READY) proc_close();  //если к открытию не готов, сначала закрываем
+  if (!START_BTN_STAT && !START_BTN_PREV && OPEN_READY) proc_open(); //если готов к открытию и кнопка на открытие - открыть
+  if (!START_BTN_STAT && START_BTN_PREV && CLOSE_READY) proc_close();// ..... - закрыть
+  if (!START_BTN_STAT && START_BTN_PREV && !CLOSE_READY) proc_close();// ..... - закрыть в случае сбоя датчиков
+} 
+
+void sensors_stat() {
+  boolean s1_s = digitalRead(M1_S);
+  boolean s1_s_tmp = digitalRead(M1_S);
+    if (s1_s_tmp == LOW) {
+      delay (30);
+      s1_s = digitalRead(M1_S);
+    }
+    if (!s1_s_tmp && !s1_s) S1_S = LOW;
+    else S1_S = HIGH;
+ 
+  boolean s1_f = digitalRead(M1_F);
+  boolean s1_f_tmp = digitalRead(M1_F);
+    if (s1_f_tmp == LOW) {
+      delay (30);
+      s1_f = digitalRead(M1_F);
+    }
+    if (!s1_f_tmp && !s1_f) S1_F = LOW;
+    else S1_F = HIGH; 
+  
+  boolean s2_s = digitalRead(M2_S);
+  boolean s2_s_tmp = digitalRead(M2_S);
+    if (s2_s_tmp == LOW) {
+      delay (30);
+      s2_s = digitalRead(M2_S);
+    }
+    if (!s2_s_tmp && !s2_s) S2_S = LOW;
+    else S2_S = HIGH;
+    
+  boolean s2_f = digitalRead(M2_F);
+  boolean s2_f_tmp = digitalRead(M2_F);
+    if (s2_f_tmp == LOW) {
+      delay (30);
+      s2_f = digitalRead(M2_F);
+    }
+    if (!s2_f_tmp && !s2_f) S2_F = LOW;
+    else S2_F = HIGH;   
+}
+
+void reset (){ //сброс в исходное состояние
+  proc_close();
+  START_BTN_PREV = LOW; // начальное и предыдущее состояние кнопки старта
+  START_BTN_STAT = HIGH; // текущее состояние кнопки старта
   }
 
 void proc_open() {  //процедура открытия
@@ -122,9 +138,11 @@ void motor_1_f(){
   all_motors_off (); // все выключить для верности
 }
 void motor_2_f(){
+  sensors_stat();
+  if (!S1_F) motor_1_f();  //мотор 2 на дооткрытие вкл
   motor_2_on_f();  //мотор 2 на открытие вкл
   do sensors_stat(); //опрашиваем концевики
-  while (!S2_F);   //пока не дойдет до финишного
+  while (!S2_F && S1_F);   //пока не дойдет до финишного при полном открытии 1-го мотора
   all_motors_off(); // все выключить
   }
 
@@ -139,32 +157,29 @@ void proc_close() { //процедура закрытия
   }
   START_BTN_STAT = HIGH; //кнопка в исходное состояние
   START_BTN_PREV = LOW; // запоминаем закрытие
-  }
+}
 
 void motor_2_r(){
   motor_2_on_r();  //мотор 2 на закрытие вкл
   do sensors_stat(); //опрашиваем концевики
   while (!S2_S);
   all_motors_off();
-  }
+}
+  
 void motor_1_r(){
+  sensors_stat();
+  if (!S2_S) motor_2_on_r();  //мотор 2 на дозакрытие вкл
   motor_1_on_r();  //мотор 1 на закрытие вкл
   do sensors_stat();
-  while (!S1_S);
+  while (!S1_S && S2_S);
   all_motors_off (); // все выключить для верности
 }
-
   
 void all_motors_off () {  //все моторы выключены
   digitalWrite (M1_1, LOW);
   digitalWrite (M1_2, LOW);
   digitalWrite (M2_1, LOW);
   digitalWrite (M2_2, LOW);  
-  }
-
-void motor_1_off() {       //первый мотор выключен
-  digitalWrite (M1_1, LOW);
-  digitalWrite (M1_2, LOW);  
   }
 
 void motor_1_on_f() {      //первый мотор включен вперед
@@ -181,19 +196,14 @@ void motor_1_on_r() {      //первый мотор вкючен назад
   digitalWrite (M2_2, LOW);     
   }  
 
-void motor_2_off() {       //первый мотор выключен
-  digitalWrite (M2_1, LOW);
-  digitalWrite (M2_2, LOW); 
-  }
-
-void motor_2_on_f() {      //первый мотор включен вперед
+void motor_2_on_f() {      //второй мотор включен вперед
   digitalWrite (M2_1, HIGH);
   digitalWrite (M2_2, LOW);
   digitalWrite (M1_1, LOW); //в это время первый гаррантированно выключен
   digitalWrite (M1_2, LOW);    
   }  
 
-void motor_2_on_r() {      //первый мотор вкючен назад
+void motor_2_on_r() {      //второй мотор вкючен назад
   digitalWrite (M2_1, LOW);
   digitalWrite (M2_2, HIGH);
   digitalWrite (M1_1, LOW); //в это время первый гаррантированно выключен
